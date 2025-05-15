@@ -1,4 +1,4 @@
-# SportStats Pipeline 📊
+# SportStats Pipeline 📊 (in progress)
 
 SportStats Pipeline is a data pipeline project designed to collect, process, and store sports-related data. This project aims to automate the extraction and transformation of sports events, results, and statistics, providing structured and reliable datasets for analysis.
 
