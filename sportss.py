@@ -1,8 +1,9 @@
 from airflow import DAG
-from airflow.operators.dummy import DummyOperator
+from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime
-from config import API_KEY
+import os
+from config import API_KEY, CONN_ID, CONTAINER, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 import pandas as pd
 import requests
 
@@ -52,17 +53,37 @@ def transforming_data(**kwargs):
     df_serial = df_modified.to_json()
     kwargs['ti'].xcom_push(key='df', value=df_serial)
 
+# Para salvar localmente
+def loading_data_pkl(**kwargs):
+    ti = kwargs['ti']
+    df_serial = ti.xcom_pull(key='df', task_ids='Transform')
+    df = pd.read_json(df_serial)
+
+    # Busca do caminho absoluto em relação ao local onde o Airflow roda
+    output_dir = '/home/ana/airflow/dags/SportStats/data'
+    os.makedirs(output_dir, exist_ok=True) # Monta a pasta se ela não existir
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    df.to_pickle(os.path.join(output_dir, f"sportstats_{date}.pkl"))
+
+# Para salvar em um datalake no Azure
+def loading_data_adls (**kwargs):
+    print(1)
+
+
 with DAG (
     dag_id = 'theSportsDB',
     schedule_interval='@daily',
-    start_date=datetime(2025,2,11),
+    start_date=datetime(2025,5,13),
     catchup=True
 ) as dag:
     
-    start = DummyOperator(task_id='Start')
+    start = EmptyOperator(task_id='Start')
     extract = PythonOperator(task_id='Extract', python_callable=extract_data)
     transform = PythonOperator(task_id='Transform', python_callable=transforming_data)
-    #load = PythonOperator(task_id='Load')
-    end = DummyOperator(task_id='End')
+    load_pkl = PythonOperator(task_id='Load_pkl', python_callable=loading_data_pkl)
+    #load_adls = PythonOperator(task_id='Load_adls', python_callable=loading_data_adls)
+    end = EmptyOperator(task_id='End')
 
-start >> extract >> transform >> end
+start >> extract >> transform >> load_pkl >> end
+
